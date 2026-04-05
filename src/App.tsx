@@ -3,6 +3,9 @@ import axios from 'axios';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
+// --- ADDED THE RENDER BACKEND URL HERE ---
+const API_BASE_URL = 'https://ramana-backend-automail-3hnf.onrender.com';
+
 function App() {
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   
@@ -14,7 +17,6 @@ function App() {
   const [subject, setSubject] = useState('');
   const [text, setText] = useState('');
   
-  // UPDATED: Now storing files as a true Array so we can add/remove them easily
   const [files, setFiles] = useState<File[]>([]); 
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -30,31 +32,25 @@ function App() {
 
   const handleLogin = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/auth/url');
+      // UPDATED: Pointing to Render
+      const res = await axios.get(`${API_BASE_URL}/auth/url`);
       window.location.href = res.data.url; 
     } catch (error) {
       console.error("Login failed", error);
     }
   };
 
-  // NEW: Function to handle adding files to the array without replacing old ones
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // Convert the FileList object into a standard array
       const newFiles = Array.from(e.target.files);
-      
-      // Prevent adding more than 10 files total (since backend limits to 10)
       if (files.length + newFiles.length > 10) {
         alert("You can only attach a maximum of 10 files.");
         return;
       }
-
-      // Keep the old files, and add the new ones to the end
       setFiles((prevFiles) => [...prevFiles, ...newFiles]);
     }
   };
 
-  // NEW: Function to remove a specific file from the queue
   const removeFile = (indexToRemove: number) => {
     setFiles((prevFiles) => prevFiles.filter((_, index) => index !== indexToRemove));
   };
@@ -66,7 +62,6 @@ function App() {
     const toArray = to.split(',');
     if (toArray.length > 10) return alert("Max 10 recipients allowed in To field!");
 
-    // Ensure the rich text editor isn't empty
     if (!text || text === '<p><br></p>') {
       return alert("Please enter a message!");
     }
@@ -80,27 +75,26 @@ function App() {
     formData.append('cc', cc);   
     formData.append('bcc', bcc); 
     formData.append('subject', subject);
-    formData.append('text', text); // This will now send HTML!
+    formData.append('text', text); 
     formData.append('refreshToken', refreshToken);
 
-    // UPDATED: Append files from our state array
     files.forEach(file => {
       formData.append('files', file);
     });
 
     try {
-      const res = await axios.post('http://localhost:5000/send-mail', formData, {
+      // UPDATED: Pointing to Render
+      const res = await axios.post(`${API_BASE_URL}/send-mail`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setStatus("✅ " + res.data); 
       
-      // Clear the form after sending successfully
       setTo('');
       setCc('');
       setBcc('');
       setSubject('');
-      setText(''); // Clears the editor
-      setFiles([]); // Clear the file array
+      setText(''); 
+      setFiles([]); 
       
     } catch (error) {
       setStatus("❌ Failed to send emails. Check console.");
@@ -110,7 +104,6 @@ function App() {
     }
   };
 
-  // --- STYLES OBJECT ---
   const styles = {
     page: {
       minHeight: '100vh',
@@ -197,7 +190,6 @@ function App() {
       fontWeight: '500',
       textAlign: 'center' as const
     },
-    // NEW: Styles for the file list display
     fileList: {
       marginTop: '10px',
       display: 'flex',
@@ -276,7 +268,6 @@ function App() {
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Message</label>
-              {/* THE FIX: Replaced textarea with ReactQuill right here! */}
               <div style={{ backgroundColor: 'white', marginBottom: '40px', height: '200px' }}>
                 <ReactQuill 
                   theme="snow" 
@@ -292,7 +283,6 @@ function App() {
               <label style={styles.label}>Attachments <span style={{color: '#9ca3af', fontWeight: 'normal'}}>(Optional)</span></label>
               <input type="file" multiple style={{...styles.input, padding: '8px'}} onChange={handleFileChange} />
               
-              {/* NEW: Visual display of queued files */}
               {files.length > 0 && (
                 <div style={styles.fileList}>
                   {files.map((file, index) => (
