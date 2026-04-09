@@ -3,13 +3,14 @@ import axios from 'axios';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
-// --- ADDED THE RENDER BACKEND URL HERE ---
+// --- RENDER BACKEND URL ---
 const API_BASE_URL = 'https://ramana-backend-automail-3hnf.onrender.com';
 
 function App() {
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   
   // Form State
+  const [userName, setUserName] = useState(''); // <-- ADDED SENDER NAME STATE
   const [userEmail, setUserEmail] = useState('');
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');   
@@ -32,7 +33,6 @@ function App() {
 
   const handleLogin = async () => {
     try {
-      // UPDATED: Pointing to Render
       const res = await axios.get(`${API_BASE_URL}/auth/url`);
       window.location.href = res.data.url; 
     } catch (error) {
@@ -59,9 +59,8 @@ function App() {
     e.preventDefault();
     if (!refreshToken) return alert("Please log in first!");
 
-    const toArray = to.split(',');
-    if (toArray.length > 10) return alert("Max 10 recipients allowed in To field!");
-
+    // We no longer strictly reject based on commas since the backend parses messy strings,
+    // but we can still do a basic check. The backend will enforce the final 10-person limit.
     if (!text || text === '<p><br></p>') {
       return alert("Please enter a message!");
     }
@@ -70,6 +69,7 @@ function App() {
     setStatus("Sending emails...");
     
     const formData = new FormData();
+    formData.append('userName', userName); // <-- ADDED TO FORMDATA
     formData.append('userEmail', userEmail);
     formData.append('to', to);
     formData.append('cc', cc);   
@@ -83,7 +83,6 @@ function App() {
     });
 
     try {
-      // UPDATED: Pointing to Render
       const res = await axios.post(`${API_BASE_URL}/send-mail`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -96,8 +95,9 @@ function App() {
       setText(''); 
       setFiles([]); 
       
-    } catch (error) {
-      setStatus("❌ Failed to send emails. Check console.");
+    } catch (error: any) {
+      const errorMsg = error.response?.data || "Failed to send emails. Check console.";
+      setStatus(`❌ ${errorMsg}`);
       console.error(error);
     } finally {
       setIsLoading(false); 
@@ -120,7 +120,7 @@ function App() {
       boxShadow: '0 10px 25px rgba(0, 0, 0, 0.05)',
       padding: '40px',
       width: '100%',
-      maxWidth: '550px',
+      maxWidth: '650px', // slightly wider to accommodate text areas nicely
     },
     header: {
       textAlign: 'center' as const,
@@ -150,6 +150,20 @@ function App() {
       transition: 'border-color 0.2s',
       boxSizing: 'border-box' as const,
       width: '100%'
+    },
+    textarea: {
+      padding: '12px',
+      borderRadius: '8px',
+      border: '1px solid #d1d5db',
+      fontSize: '14px',
+      color: '#1f2937',
+      outline: 'none',
+      transition: 'border-color 0.2s',
+      boxSizing: 'border-box' as const,
+      width: '100%',
+      minHeight: '70px',
+      resize: 'vertical' as const,
+      fontFamily: 'inherit'
     },
     primaryButton: {
       backgroundColor: '#2563eb',
@@ -239,25 +253,34 @@ function App() {
           </div>
         ) : (
           <form onSubmit={handleSend}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Your Sender Address</label>
-              <input required type="email" style={styles.input} value={userEmail} onChange={e => setUserEmail(e.target.value)} placeholder="name@gmail.com" />
+            
+            {/* ADDED: SENDER NAME AND EMAIL ROW */}
+            <div style={{ display: 'flex', gap: '15px' }}>
+              <div style={{ ...styles.formGroup, flex: 1 }}>
+                <label style={styles.label}>Sender Name</label>
+                <input required type="text" style={styles.input} value={userName} onChange={e => setUserName(e.target.value)} placeholder="e.g., Ramana Automail" />
+              </div>
+              <div style={{ ...styles.formGroup, flex: 1 }}>
+                <label style={styles.label}>Sender Address</label>
+                <input required type="email" style={styles.input} value={userEmail} onChange={e => setUserEmail(e.target.value)} placeholder="name@jozuna.com" />
+              </div>
             </div>
 
+            {/* UPDATED: CHANGED TO TEXTAREA FOR EASY PASTING */}
             <div style={styles.formGroup}>
-              <label style={styles.label}>To <span style={{color: '#9ca3af', fontWeight: 'normal'}}>(Max 10, comma separated)</span></label>
-              <input required type="text" style={styles.input} value={to} onChange={e => setTo(e.target.value)} placeholder="client1@domain.com, client2@domain.com" />
+              <label style={styles.label}>To <span style={{color: '#9ca3af', fontWeight: 'normal'}}>(Max 10, paste list or comma separated)</span></label>
+              <textarea required style={styles.textarea} value={to} onChange={e => setTo(e.target.value)} placeholder={'Paste email list here. E.g.:\nRavina Sri <ravinasri@jozuna.com>\nshradha@jozuna.com'} />
             </div>
             
             <div style={{ display: 'flex', gap: '15px' }}>
               <div style={{ ...styles.formGroup, flex: 1 }}>
                 <label style={styles.label}>CC <span style={{color: '#9ca3af', fontWeight: 'normal'}}>(Optional)</span></label>
-                <input type="text" style={styles.input} value={cc} onChange={e => setCc(e.target.value)} />
+                <textarea style={styles.textarea} value={cc} onChange={e => setCc(e.target.value)} placeholder="Paste CC list here..." />
               </div>
 
               <div style={{ ...styles.formGroup, flex: 1 }}>
                 <label style={styles.label}>BCC <span style={{color: '#9ca3af', fontWeight: 'normal'}}>(Optional)</span></label>
-                <input type="text" style={styles.input} value={bcc} onChange={e => setBcc(e.target.value)} />
+                <textarea style={styles.textarea} value={bcc} onChange={e => setBcc(e.target.value)} placeholder="Paste BCC list here..." />
               </div>
             </div>
 
